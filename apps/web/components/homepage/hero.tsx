@@ -92,7 +92,7 @@ const HeroSection = () => {
                     <button
                       key={method}
                       onClick={() => setActiveMethod(method)}
-                      className={`px-5 py-3 text-[14px] font-mono transition-colors relative ${
+                      className={`px-3 sm:px-5 py-3 text-[14px] font-mono transition-colors relative ${
                         activeMethod === method
                           ? "text-foreground"
                           : "text-muted-foreground hover:text-foreground"
@@ -105,8 +105,8 @@ const HeroSection = () => {
               </div>
 
               {/* Command display */}
-              <div className="flex items-center justify-between px-5 py-4">
-                <code className="text-[14px] font-mono">
+              <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
+                <code className="min-w-0 text-[12px] font-mono break-words sm:text-[14px]">
                   <span className="text-muted-foreground">
                     {
                       installCommands[activeMethod].command.split(
@@ -126,7 +126,7 @@ const HeroSection = () => {
                 </code>
                 <button
                   onClick={handleCopy}
-                  className="ml-4 text-muted-foreground hover:text-foreground transition-colors"
+                  className="relative shrink-0 text-muted-foreground hover:text-foreground transition-colors after:absolute after:-inset-3 after:content-['']"
                 >
                   {copied ? (
                     <Check className="w-4 h-4 text-primary" />

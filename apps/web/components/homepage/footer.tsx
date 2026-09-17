@@ -83,7 +83,6 @@ const PIXEL_FONT: Record<string, number[][]> = {
   ],
 }
 
-const PIXEL_SIZE = 8
 const PIXEL_GAP = 1
 
 const PixelLogo = () => {
@@ -93,9 +92,15 @@ const PixelLogo = () => {
     <div
       className="relative cursor-pointer"
       onMouseEnter={() => setHoverTick((t) => t + 1)}
-      style={{
-        filter: "drop-shadow(0 0 6px hsl(var(--primary) / 0.3))",
-      }}
+      style={
+        {
+          filter: "drop-shadow(0 0 6px hsl(var(--primary) / 0.3))",
+          // Fluid pixel size so the wordmark can never overflow a narrow screen.
+          // Width = 9 glyphs x (5 pixels + 4 gaps) + 8 x 3px gaps
+          //       = 45 x pixelSize + 60, so keep 45 x px under the inner width.
+          "--px": "min(8px, calc((100vw - 120px) / 45))",
+        } as React.CSSProperties
+      }
     >
       {/* Scanline overlay */}
       <div
@@ -103,7 +108,7 @@ const PixelLogo = () => {
         style={{
           backgroundImage:
             "repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.3) 1px, rgba(0,0,0,0.3) 2px)",
-          backgroundSize: `100% ${PIXEL_SIZE + PIXEL_GAP}px`,
+          backgroundSize: `100% calc(var(--px) + ${PIXEL_GAP}px)`,
         }}
       />
       <div className="flex gap-[3px]">
@@ -112,7 +117,7 @@ const PixelLogo = () => {
             key={`${hoverTick}-${ci}`}
             className="grid"
             style={{
-              gridTemplateRows: `repeat(7, ${PIXEL_SIZE}px)`,
+              gridTemplateRows: "repeat(7, var(--px))",
               gap: `${PIXEL_GAP}px`,
             }}
           >
@@ -127,8 +132,8 @@ const PixelLogo = () => {
                     key={`${ri}-${pi}`}
                     className={`${pixel ? "bg-primary" : "bg-transparent"}`}
                     style={{
-                      width: PIXEL_SIZE,
-                      height: PIXEL_SIZE,
+                      width: "var(--px)",
+                      height: "var(--px)",
                       opacity: pixel ? undefined : 0,
                       borderRadius: "1px",
                       animation: pixel ? `pixelFadeIn 0.4s ease-out ${(ri * 5 + pi) * 20 + ci * 120}ms both` : undefined,
@@ -308,7 +313,7 @@ const Footer = () => {
               href="https://github.com/yashdev9274/superCli"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#A1A1AA] hover:text-foreground transition-colors duration-200"
+              className="relative text-[#A1A1AA] hover:text-foreground transition-colors duration-200 after:absolute after:-inset-2 after:content-['']"
             >
               <Github className="w-[18px] h-[18px]" />
             </a>
@@ -316,13 +321,13 @@ const Footer = () => {
               href="https://x.com/supercodeai"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#A1A1AA] hover:text-foreground transition-colors duration-200"
+              className="relative text-[#A1A1AA] hover:text-foreground transition-colors duration-200 after:absolute after:-inset-2 after:content-['']"
             >
               <Twitter className="w-[18px] h-[18px]" />
             </a>
             <a
               href="mailto:yashdev.yvd@gmail.com"
-              className="text-[#A1A1AA] hover:text-foreground transition-colors duration-200"
+              className="relative text-[#A1A1AA] hover:text-foreground transition-colors duration-200 after:absolute after:-inset-2 after:content-['']"
             >
               <Mail className="w-[18px] h-[18px]" />
             </a>

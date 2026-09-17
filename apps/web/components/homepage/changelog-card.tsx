@@ -22,7 +22,7 @@ export default function ChangelogCard() {
         <div className="border border-border rounded-xl overflow-hidden bg-card">
           <div className="grid md:grid-cols-[340px_1fr]">
             {/* Left — version info */}
-            <div className="flex flex-col justify-center px-10 py-12 border-b md:border-b-0 md:border-r border-border">
+            <div className="flex flex-col justify-center px-6 py-12 md:px-10 border-b md:border-b-0 md:border-r border-border">
               <h2 className="text-lg font-semibold text-primary uppercase mb-3">
                 SHIP
               </h2>
@@ -38,7 +38,7 @@ export default function ChangelogCard() {
             </div>
 
             {/* Right — recent entries */}
-            <div className="flex flex-col justify-center px-10 py-12">
+            <div className="flex flex-col justify-center px-6 py-12 md:px-10">
               <div className="flex flex-col gap-6">
                 {changelogEntries.map((entry, i) => {
                   const style = typeStyles[entry.type];

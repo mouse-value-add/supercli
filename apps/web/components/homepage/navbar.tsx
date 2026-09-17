@@ -214,7 +214,7 @@ const Navbar = () => {
             <div className="flex items-center gap-4 shrink-0">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="md:hidden relative w-8 h-8 flex items-center justify-center text-foreground/80 hover:text-foreground transition-colors"
+                className="md:hidden relative w-8 h-8 flex items-center justify-center text-foreground/80 hover:text-foreground transition-colors after:absolute after:-inset-1.5 after:content-['']"
                 aria-label={menuOpen ? "Close menu" : "Open menu"}
               >
                 <div className="relative w-5 h-4">
@@ -340,7 +340,7 @@ const Navbar = () => {
                 style={{ transitionDelay: menuOpen ? "0ms" : "0ms" }}
               >
                 <div className="px-5 py-2">
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground/40">
+                  <span className="text-sm uppercase tracking-tight font-medium text-muted-foreground">
                     Products
                   </span>
                 </div>
@@ -371,7 +371,7 @@ const Navbar = () => {
                       </span>
                       <div>
                         <div>{item.label}</div>
-                        <div className="text-[11px] text-muted-foreground/50 mt-0.5">
+                        <div className="text-xs text-muted-foreground/50 mt-0.5">
                           {item.description}
                         </div>
                       </div>
@@ -390,7 +390,7 @@ const Navbar = () => {
                       </span>
                       <div>
                         <div>{item.label}</div>
-                        <div className="text-[11px] text-muted-foreground/50 mt-0.5">
+                        <div className="text-xs text-muted-foreground/50 mt-0.5">
                           {item.description}
                         </div>
                       </div>
