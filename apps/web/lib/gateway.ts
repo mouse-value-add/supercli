@@ -153,9 +153,22 @@ export function chatModel(
   return googleDirect(bareModelId(modelId))
 }
 
+export function embeddingProvider(): "vercel" | "merge" | "openai" | null {
+  const configured = (process.env.EMBEDDING_PROVIDER ?? "").trim().toLowerCase()
+  if (configured === "vercel" && hasVercelKey()) return "vercel"
+  if (configured === "merge" && hasMergeKey()) return "merge"
+  if (configured === "openai" && hasOpenAIKey()) return "openai"
+
+  // Vercel's free tier currently rejects OpenAI embeddings. Prefer a direct
+  // key automatically; gateways must be explicitly enabled once paid access
+  // is available.
+  if (hasOpenAIKey()) return "openai"
+  return null
+}
+
 export function embeddingModel(
   modelId: string,
-  provider: GatewayProviderName = activeGatewayProvider,
+  provider: "vercel" | "merge" | "openai" = embeddingProvider() ?? "openai",
 ): EmbeddingModel {
   if (provider === "vercel") {
     return vercelGateway.embeddingModel(modelId)

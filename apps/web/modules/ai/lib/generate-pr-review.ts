@@ -1,5 +1,9 @@
 import prisma from "@super/db"
-import { getPullRequestDiff, postReviewComment } from "@/modules/github/lib/github"
+import {
+  getPullRequestDiff,
+  postReviewComment,
+  updatePullRequestSummary,
+} from "@/modules/github/lib/github"
 import { retrieveContext } from "@/modules/pinecone/rag"
 import { generateText } from "ai"
 import {
@@ -259,6 +263,9 @@ ${diff}
 ### Summary
 2–4 sentences on what this PR does and why it matters.
 
+### PR description summary
+A concise changelog for the PR description. Group bullets under only the relevant plain-text category headings, such as \`New Features\`, \`Bug Fixes\`, \`Documentation\`, \`Tests\`, \`Refactoring\`, or \`Infrastructure\`. Put each heading on its own line, followed by short Markdown bullets. Do not use \`#\` heading markers in this section. Omit empty categories.
+
 ### Walkthrough
 Bullet list of the main changes by area/file. Keep it scannable.
 
@@ -295,6 +302,14 @@ A cleaned-up PR body the author could paste, with:
 Do not include a poem. Do not wrap the whole response in a single code fence.`
 }
 
+function extractPrDescriptionSummary(review: string): string | null {
+  const match = review.match(
+    /(?:^|\n)###\s+PR description summary\s*\n([\s\S]*?)(?=\n###\s|$)/i,
+  )
+  const summary = match?.[1]?.trim()
+  return summary || null
+}
+
 export type GeneratePrReviewInput = {
   owner: string
   repo: string
@@ -309,6 +324,7 @@ export type GeneratePrReviewResult = {
   prNumber: number
   files: number
   commentPosted: boolean
+  descriptionUpdated?: boolean
   review: string
   linearNotified?: boolean
   linearIssueId?: string | null
@@ -466,19 +482,28 @@ export async function runGeneratePrReview(
 ): Promise<GeneratePrReviewResult> {
   const { owner, repo, prNumber } = input
   const repoId = `${owner}/${repo}`
+  const pipelineStartedAt = Date.now()
+  const timings: Record<string, number> = {}
+  const measure = async <T>(stage: string, work: () => Promise<T>): Promise<T> => {
+    const startedAt = Date.now()
+    try {
+      return await work()
+    } finally {
+      timings[stage] = Date.now() - startedAt
+    }
+  }
 
   // Resolve token first so we can bind the review to a real connected user
   // even when the Inngest payload carries a bad/stale userId.
-  const { accessToken, userId } = await resolveGithubAccessToken(input)
+  const { accessToken, userId } = await measure("tokenMs", () =>
+    resolveGithubAccessToken(input),
+  )
   const resolvedInput = { ...input, userId }
 
-  await markReviewPending(resolvedInput)
+  await measure("pendingMs", () => markReviewPending(resolvedInput))
 
-  const prData = await getPullRequestDiff(
-    accessToken,
-    owner,
-    repo,
-    prNumber,
+  const prData = await measure("githubFetchMs", () =>
+    getPullRequestDiff(accessToken, owner, repo, prNumber),
   )
 
   let context: string[] = []
@@ -491,7 +516,7 @@ export async function runGeneratePrReview(
       .filter(Boolean)
       .join("\n")
 
-    context = await retrieveContext(query, repoId, 6)
+    context = await measure("contextMs", () => retrieveContext(query, repoId, 6))
   } catch (error) {
     console.error("[generate-pr-review] retrieveContext failed:", error)
     context = []
@@ -521,7 +546,7 @@ export async function runGeneratePrReview(
     diff: prData.diff,
   })
 
-  const text = await generateReviewText(prompt)
+  const text = await measure("generationMs", () => generateReviewText(prompt))
 
   if (!text?.trim()) {
     throw new Error("Model returned empty review")
@@ -530,11 +555,14 @@ export async function runGeneratePrReview(
   const review = text
   const prUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}`
 
-  const repository = await findRepository(owner, repo, userId)
   let reviewId: string | null = null
-  if (!repository) {
-    console.warn(`[generate-pr-review] repository ${repoId} missing when saving`)
-  } else {
+  await measure("persistenceMs", async () => {
+    const repository = await findRepository(owner, repo, userId)
+    if (!repository) {
+      console.warn(`[generate-pr-review] repository ${repoId} missing when saving`)
+      return
+    }
+
     const saved = await prisma.review.upsert({
       where: {
         repositoryId_prNumber: {
@@ -559,107 +587,142 @@ export async function runGeneratePrReview(
       select: { id: true },
     })
     reviewId = saved.id
-  }
+  })
 
   // Persist completed review first so the dashboard is correct even if GitHub
-  // commenting fails. Sticky PR comment is best-effort after that — do not
-  // fail the whole job (Inngest onFailure would flip status back to failed).
+  // writes fail. The sticky comment and PR-body summary are independent and
+  // best-effort, so run them concurrently without failing the review.
   let commentPosted = false
-  try {
-    await postReviewComment(
-      accessToken,
-      owner,
-      repo,
-      prNumber,
-      review,
-      { headSha: prData.headSha, event: "COMMENT" },
-    )
-    commentPosted = true
-  } catch (error) {
-    console.error(
-      `[generate-pr-review] postReviewComment failed for ${repoId}#${prNumber} (review still saved):`,
-      error,
-    )
-  }
+  let descriptionUpdated = false
+  const descriptionSummary = extractPrDescriptionSummary(review)
 
-  // Push review into connected Linear workspace (Supercode AI project).
-  // Best-effort — never fail the review job if Linear/Composio is down.
+  await Promise.all([
+    measure("githubCommentMs", async () => {
+      try {
+        await postReviewComment(accessToken, owner, repo, prNumber, review, {
+          headSha: prData.headSha,
+          event: "COMMENT",
+        })
+        commentPosted = true
+      } catch (error) {
+        console.error(
+          `[generate-pr-review] postReviewComment failed for ${repoId}#${prNumber} (review still saved):`,
+          error,
+        )
+      }
+    }),
+    measure("githubDescriptionMs", async () => {
+      if (!descriptionSummary) {
+        console.warn(
+          `[generate-pr-review] PR description summary missing for ${repoId}#${prNumber}`,
+        )
+        return
+      }
+      try {
+        await updatePullRequestSummary(
+          accessToken,
+          owner,
+          repo,
+          prNumber,
+          descriptionSummary,
+        )
+        descriptionUpdated = true
+      } catch (error) {
+        console.error(
+          `[generate-pr-review] updatePullRequestSummary failed for ${repoId}#${prNumber} (review still saved):`,
+          error,
+        )
+      }
+    }),
+  ])
+
+  // Optional notifications are independent. Run them concurrently so their
+  // latency is the slower of the two integrations rather than the sum.
   let linearNotified = false
   let linearIssueId: string | null = null
   let linearSkippedReason: string | null = null
-  try {
-    const { notifyLinearOfCompletedReview } = await import(
-      "@/modules/integrations/lib/linear"
-    )
-    const linearResult = await notifyLinearOfCompletedReview({
-      userId,
-      owner,
-      repo,
-      prNumber,
-      prTitle: prData.title,
-      prUrl,
-      prDescription: prData.description || "",
-      reviewMarkdown: review,
-      reviewId,
-    })
-    if (linearResult.skipped) {
-      linearSkippedReason = linearResult.reason ?? "skipped"
-      console.log(
-        `[generate-pr-review] linear notify skipped for ${repoId}#${prNumber}: ${linearSkippedReason}`,
-      )
-    } else {
-      linearNotified = true
-      linearIssueId = linearResult.issueId ?? null
-      console.log(
-        `[generate-pr-review] linear notify ok for ${repoId}#${prNumber} issue=${linearIssueId ?? "?"} updated=${Boolean(linearResult.updated)} project=${linearResult.projectId ?? "?"}`,
-      )
-    }
-  } catch (error) {
-    console.error(
-      `[generate-pr-review] linear notify failed for ${repoId}#${prNumber} (review still saved):`,
-      error,
-    )
-  }
-
-  // Email the connected Supercode user a review summary (Resend).
-  // Best-effort — never fail the review job if email delivery fails.
   let emailNotified = false
   let emailId: string | null = null
   let emailSkippedReason: string | null = null
-  try {
-    const { notifyUserOfCompletedReview } = await import(
-      "@/modules/email/pr-review-email"
-    )
-    const emailResult = await notifyUserOfCompletedReview({
-      userId,
-      owner,
-      repo,
-      prNumber,
-      prTitle: prData.title,
-      prUrl,
-      prAuthor: prData.author,
-      prDescription: prData.description || "",
-      reviewMarkdown: review,
-      reviewId,
-    })
-    if (emailResult.skipped) {
-      emailSkippedReason = emailResult.reason
-      console.log(
-        `[generate-pr-review] email notify skipped for ${repoId}#${prNumber}: ${emailSkippedReason}`,
-      )
-    } else {
-      emailNotified = true
-      emailId = emailResult.emailId
-      console.log(
-        `[generate-pr-review] email notify ok for ${repoId}#${prNumber} id=${emailId ?? "?"}`,
-      )
-    }
-  } catch (error) {
-    console.error(
-      `[generate-pr-review] email notify failed for ${repoId}#${prNumber} (review still saved):`,
-      error,
-    )
-  }
+
+  await Promise.all([
+    measure("linearMs", async () => {
+      try {
+        const { notifyLinearOfCompletedReview } = await import(
+          "@/modules/integrations/lib/linear"
+        )
+        const linearResult = await notifyLinearOfCompletedReview({
+          userId,
+          owner,
+          repo,
+          prNumber,
+          prTitle: prData.title,
+          prUrl,
+          prDescription: prData.description || "",
+          reviewMarkdown: review,
+          reviewId,
+        })
+        if (linearResult.skipped) {
+          linearSkippedReason = linearResult.reason ?? "skipped"
+          console.log(
+            `[generate-pr-review] linear notify skipped for ${repoId}#${prNumber}: ${linearSkippedReason}`,
+          )
+        } else {
+          linearNotified = true
+          linearIssueId = linearResult.issueId ?? null
+          console.log(
+            `[generate-pr-review] linear notify ok for ${repoId}#${prNumber} issue=${linearIssueId ?? "?"} updated=${Boolean(linearResult.updated)} project=${linearResult.projectId ?? "?"}`,
+          )
+        }
+      } catch (error) {
+        console.error(
+          `[generate-pr-review] linear notify failed for ${repoId}#${prNumber} (review still saved):`,
+          error,
+        )
+      }
+    }),
+    measure("emailMs", async () => {
+      try {
+        const { notifyUserOfCompletedReview } = await import(
+          "@/modules/email/pr-review-email"
+        )
+        const emailResult = await notifyUserOfCompletedReview({
+          userId,
+          owner,
+          repo,
+          prNumber,
+          prTitle: prData.title,
+          prUrl,
+          prAuthor: prData.author,
+          prDescription: prData.description || "",
+          reviewMarkdown: review,
+          reviewId,
+        })
+        if (emailResult.skipped) {
+          emailSkippedReason = emailResult.reason
+          console.log(
+            `[generate-pr-review] email notify skipped for ${repoId}#${prNumber}: ${emailSkippedReason}`,
+          )
+        } else {
+          emailNotified = true
+          emailId = emailResult.emailId
+          console.log(
+            `[generate-pr-review] email notify ok for ${repoId}#${prNumber} id=${emailId ?? "?"}`,
+          )
+        }
+      } catch (error) {
+        console.error(
+          `[generate-pr-review] email notify failed for ${repoId}#${prNumber} (review still saved):`,
+          error,
+        )
+      }
+    }),
+  ])
+
+  timings.totalMs = Date.now() - pipelineStartedAt
+  console.log(
+    `[generate-pr-review] timings ${repoId}#${prNumber} ${JSON.stringify(timings)}`,
+  )
 
   return {
     success: true,
@@ -668,6 +731,7 @@ export async function runGeneratePrReview(
     prNumber,
     files: prData.changedFiles.length,
     commentPosted,
+    descriptionUpdated,
     review,
     linearNotified,
     linearIssueId,

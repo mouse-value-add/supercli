@@ -91,6 +91,15 @@ export default function DownloadPage() {
           </h2>
           <div className="max-w-[400px]">
             <h3 className="mb-3 text-lg text-muted-foreground">Mac</h3>
+            {desktopDownload?.isUnnotarizedBeta ? (
+              <div id="desktop-beta-notice" className="mb-4 rounded-md border border-border bg-muted p-3 text-sm">
+                <p className="font-medium">Unnotarized beta — macOS approval required</p>
+                <p className="mt-1 text-muted-foreground">
+                  This app is ad-hoc signed, not signed with an Apple Developer ID or notarized by Apple.
+                  macOS may block the first launch. Only install it if you trust this download.
+                </p>
+              </div>
+            ) : null}
             <div className="overflow-hidden rounded-md border border-foreground/60 bg-foreground/80 text-background divide-y divide-background/20">
               {["Apple Silicon", "Intel"].map((architecture) => {
                 const content = (
@@ -111,7 +120,8 @@ export default function DownloadPage() {
                   <a
                     key={architecture}
                     href={desktopDownload.url}
-                    aria-label={`Download Supercode for Mac ${architecture} (.dmg)`}
+                    aria-label={`Download Supercode${desktopDownload.isUnnotarizedBeta ? " unnotarized beta" : ""} for Mac ${architecture} (.dmg)`}
+                    aria-describedby={desktopDownload.isUnnotarizedBeta ? "desktop-beta-notice" : undefined}
                     className={className}
                   >
                     {content}
@@ -129,11 +139,18 @@ export default function DownloadPage() {
             {desktopDownload ? (
               <>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  v{desktopDownload.version} · <a href={desktopDownload.checksumUrl} className="underline underline-offset-4">SHA-256 checksum</a>
+                  v{desktopDownload.version}{desktopDownload.isUnnotarizedBeta ? " beta" : ""} · <a href={desktopDownload.checksumUrl} className="underline underline-offset-4">SHA-256 checksum</a>
                 </p>
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Open the DMG, drag Supercode into Applications, then launch and sign in.
+                  Open the DMG, drag Supercode into Applications, eject the DMG, then launch and sign in.
                 </p>
+                {desktopDownload.isUnnotarizedBeta ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    If macOS blocks the app because the developer cannot be verified, open System Settings → Privacy &amp; Security → Open Anyway
+                    after attempting to launch, then confirm. Managed Macs may not allow this.
+                    Do not disable Gatekeeper or override a malware warning.
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">Coming soon — downloads will be enabled after release verification.</p>
