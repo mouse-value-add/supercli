@@ -14,7 +14,7 @@ Jarvis remains a standalone Dynamic Island product under `apps/jarvis`.
 
 ## Install from a release
 
-Download the verified macOS DMG from the website, open it, drag **Supercode** to **Applications**, eject the disk image, and launch Supercode from Applications. Requires macOS 14+; the universal app supports Apple Silicon and Intel. Users do not need Xcode, Bun, the CLI, or Jarvis. Until a signed release is published, the website shows “Coming soon”.
+Download the macOS DMG from the website, open it, drag **Supercode** to **Applications**, eject the disk image, and launch Supercode from Applications. Requires macOS 14+; the universal app supports Apple Silicon and Intel. Users do not need Xcode, Bun, the CLI, or Jarvis. Until a release URL is configured, the website shows “Coming soon”. Unnotarized beta downloads display an explicit warning and may require macOS approval (see below).
 
 ## Build requirements
 
@@ -52,7 +52,7 @@ Run from `apps/supercode-desktop`:
 bash scripts/package-dmg.sh development 0.1.0 1
 ```
 
-Creates `dist/Supercode-0.1.0-universal-development.dmg` and its `.sha256` file. It builds Release with both architectures, verifies version/icon/contracts, and includes only the app plus an Applications shortcut. Development packages are ad-hoc signed, **not notarized, and not public releases**. Existing output files are never overwritten. Pass a fourth argument for a different output directory. Build intermediates are temporary and removed automatically.
+Creates `dist/Supercode-0.1.0-universal-development.dmg` and its `.sha256` file. It builds Release with both architectures, verifies version/icon/contracts, and includes only the app plus an Applications shortcut. Development packages are ad-hoc signed and **not notarized**; share them only as explicitly disclosed unnotarized betas, not signed production releases. Existing output files are never overwritten. Pass a fourth argument for a different output directory. Build intermediates are temporary and removed automatically.
 
 For local production packaging, install a **Developer ID Application** certificate with its private key into Keychain. Store notarization credentials using the interactive `xcrun notarytool store-credentials desktop-notary` command (do not put passwords in command history). Set `DEVELOPER_ID_APPLICATION` to the certificate identity and `NOTARY_PROFILE=desktop-notary`; optionally set `SIGNING_KEYCHAIN` to the keychain path. Then run:
 
@@ -62,7 +62,17 @@ bash scripts/package-dmg.sh production 0.1.0 1
 
 Production mode requires signing credentials; it does not fall back to development mode. It signs with hardened runtime and a secure timestamp, notarizes and staples the app, then signs/notarizes/staples the DMG and performs Gatekeeper checks before writing the final DMG and checksum. On notarization failure, inspect the submission ID with `notarytool log`; never publish a failed artifact.
 
-## GitHub release setup
+## Free unnotarized beta distribution
+
+An Apple Developer membership is not required to share the development DMG as an explicitly labeled beta. It is ad-hoc signed, not Developer ID signed or notarized. Retain the `-development.dmg` filename; do not describe it as a notarized production release.
+
+Verify it with `python3 scripts/verify-dmg.py dist/Supercode-0.1.0-universal-development.dmg 0.1.0 1`, then upload the DMG and matching `.sha256` to a GitHub **prerelease** tagged `desktop-v0.1.0`. Keep it separate from the CLI latest release. Test installation and production login before announcing availability. The existing desktop tag workflow is for signed releases and requires Apple secrets; it does not automate this manual beta route.
+
+Set the Vercel web production variable `NEXT_PUBLIC_DESKTOP_DMG_URL` to `https://github.com/yashdev9274/supercli/releases/download/desktop-v0.1.0/Supercode-0.1.0-universal-development.dmg` only after publishing the asset, then deploy the web changes. Both Mac buttons download that universal beta and the page displays the unnotarized warning automatically.
+
+If macOS blocks first launch because the developer cannot be verified, users who trust the download can go to **System Settings → Privacy & Security → Open Anyway** after attempting to launch, then confirm. Managed Macs may prohibit this. Do not disable Gatekeeper or override malware warnings. Never replace a published beta asset with a different build; use a new version.
+
+## GitHub release setup (signed production)
 
 Configure the `desktop-production` GitHub environment **before pushing a release tag**. Require reviewer approval, restrict deployment tags to `desktop-v*`, protect release tags from unauthorized creation/replacement, and add these environment secrets securely:
 
@@ -87,7 +97,7 @@ After clean-install verification, publish the draft without marking it as the re
 https://github.com/yashdev9274/supercli/releases/download/desktop-v0.1.0/Supercode-0.1.0-universal.dmg
 ```
 
-Redeploy the web app after setting/changing the URL; Next.js embeds this public value at build time. The link validator rejects non-HTTPS, mismatched versions, generic latest links and development artifacts. Missing/invalid configuration keeps the card unavailable. Verify the public DMG and checksum links before enabling them. No binary is stored in the Vercel deployment.
+Redeploy the web app after setting/changing the URL; Next.js embeds this public value at build time. The link validator rejects non-HTTPS, mismatched versions and generic latest links. Development artifacts are accepted only with the explicit `-development` filename suffix and display the unnotarized beta notice. Missing/invalid configuration keeps the card unavailable. Verify the public DMG and checksum links before enabling them. No binary is stored in the Vercel deployment.
 
 ## Release acceptance
 
@@ -99,7 +109,7 @@ On a clean macOS user account/device with no CLI token or developer environment:
 4. Select a workspace and run a basic model turn plus a permitted local file/command tool. Check denial/cancellation and relaunch persistence.
 5. Test on Apple Silicon and Intel hardware; checking the universal binary is not Intel runtime testing.
 
-Signing/notarization, deployed backend compatibility and this live smoke test are mandatory public-release gates. Automated local tests cannot establish those outcomes. This workflow does not deploy the backend or provide automatic in-app updates.
+Signing/notarization, deployed backend compatibility and this live smoke test are mandatory signed production-release gates. The free beta path omits signing/notarization but must clearly disclose that limitation and still requires functional smoke testing. Automated local tests cannot establish those outcomes. This workflow does not deploy the backend or provide automatic in-app updates.
 
 ## Deep links
 
