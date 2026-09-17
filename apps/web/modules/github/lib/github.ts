@@ -718,27 +718,29 @@ export async function getPullRequestDiff(
 ) {
   const octokit = new Octokit({ auth: token })
 
-  const { data: pr } = await octokit.rest.pulls.get({
-    owner,
-    repo,
-    pull_number: prNumber,
-  })
-
-  const { data: files } = await octokit.rest.pulls.listFiles({
-    owner,
-    repo,
-    pull_number: prNumber,
-    per_page: 100,
-  })
-
-  const { data: diff } = await octokit.rest.pulls.get({
-    owner,
-    repo,
-    pull_number: prNumber,
-    mediaType: {
-      format: "diff",
-    },
-  })
+  // These endpoints are independent. Fetch them together so GitHub network
+  // latency is paid once instead of three times serially.
+  const [{ data: pr }, { data: files }, { data: diff }] = await Promise.all([
+    octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber,
+    }),
+    octokit.rest.pulls.listFiles({
+      owner,
+      repo,
+      pull_number: prNumber,
+      per_page: 100,
+    }),
+    octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber,
+      mediaType: {
+        format: "diff",
+      },
+    }),
+  ])
 
   let diffText = diff as unknown as string
   if (diffText.length > MAX_DIFF_CHARS) {

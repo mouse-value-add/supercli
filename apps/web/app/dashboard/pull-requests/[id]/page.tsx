@@ -14,6 +14,16 @@ import {
 } from "@/modules/pull-requests/components/pr-workspace"
 import { toast } from "sonner"
 
+const STALE_PENDING_MS = 10 * 60 * 1000
+
+function isStalePending(review: {
+  status: string
+  updatedAt?: Date | string
+} | null | undefined) {
+  if (review?.status !== "pending" || !review.updatedAt) return false
+  return Date.now() - new Date(review.updatedAt).getTime() >= STALE_PENDING_MS
+}
+
 function hasCompletedReview(review: {
   status: string
   review?: string
@@ -73,15 +83,12 @@ export default function ReviewDetailPage(props: {
 
   const queueMutation = useMutation({
     mutationFn: () => queueReview(id),
-    onSuccess: (result) => {
-      toast.success(result.message || "AI review queued")
-      queryClient.setQueryData(["review", id], (prev: unknown) =>
-        prev && typeof prev === "object"
-          ? { ...(prev as object), status: "pending" }
-          : prev,
-      )
-      queryClient.invalidateQueries({ queryKey: ["review", id] })
-      queryClient.invalidateQueries({ queryKey: ["reviews"] })
+    onSuccess: async (result) => {
+      toast.success(result.message || "AI review completed")
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["review", id] }),
+        queryClient.invalidateQueries({ queryKey: ["reviews"] }),
+      ])
     },
     onError: (error) => {
       toast.error(
@@ -103,8 +110,9 @@ export default function ReviewDetailPage(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally once when review first loads
   }, [isLoading, review?.status, review?.prState, review?.review])
 
+  const stalePending = isStalePending(review)
   const isGenerating =
-    queueMutation.isPending || review?.status === "pending"
+    queueMutation.isPending || (review?.status === "pending" && !stalePending)
   const completed = hasCompletedReview(review)
   const showGenerate =
     !!review &&
@@ -112,6 +120,7 @@ export default function ReviewDetailPage(props: {
     !isGenerating &&
     (review.status === "unreviewed" ||
       review.status === "failed" ||
+      stalePending ||
       !review.review?.trim())
 
   if (!isLoading && !review) {
