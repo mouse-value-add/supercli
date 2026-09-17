@@ -123,6 +123,7 @@ export const generateReview = inngest.createFunction(
         prNumber: result.prNumber,
         files: result.files,
         commentPosted: result.commentPosted,
+        descriptionUpdated: result.descriptionUpdated ?? false,
         linearNotified: result.linearNotified ?? false,
         linearIssueId: result.linearIssueId ?? null,
         linearSkippedReason: result.linearSkippedReason ?? null,

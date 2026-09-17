@@ -1,5 +1,9 @@
 import prisma from "@super/db"
-import { getPullRequestDiff, postReviewComment } from "@/modules/github/lib/github"
+import {
+  getPullRequestDiff,
+  postReviewComment,
+  updatePullRequestSummary,
+} from "@/modules/github/lib/github"
 import { retrieveContext } from "@/modules/pinecone/rag"
 import { generateText } from "ai"
 import {
@@ -259,6 +263,9 @@ ${diff}
 ### Summary
 2–4 sentences on what this PR does and why it matters.
 
+### PR description summary
+A concise changelog for the PR description. Group bullets under only the relevant plain-text category headings, such as \`New Features\`, \`Bug Fixes\`, \`Documentation\`, \`Tests\`, \`Refactoring\`, or \`Infrastructure\`. Put each heading on its own line, followed by short Markdown bullets. Do not use \`#\` heading markers in this section. Omit empty categories.
+
 ### Walkthrough
 Bullet list of the main changes by area/file. Keep it scannable.
 
@@ -295,6 +302,14 @@ A cleaned-up PR body the author could paste, with:
 Do not include a poem. Do not wrap the whole response in a single code fence.`
 }
 
+function extractPrDescriptionSummary(review: string): string | null {
+  const match = review.match(
+    /(?:^|\n)###\s+PR description summary\s*\n([\s\S]*?)(?=\n###\s|$)/i,
+  )
+  const summary = match?.[1]?.trim()
+  return summary || null
+}
+
 export type GeneratePrReviewInput = {
   owner: string
   repo: string
@@ -309,6 +324,7 @@ export type GeneratePrReviewResult = {
   prNumber: number
   files: number
   commentPosted: boolean
+  descriptionUpdated?: boolean
   review: string
   linearNotified?: boolean
   linearIssueId?: string | null
@@ -574,23 +590,51 @@ export async function runGeneratePrReview(
   })
 
   // Persist completed review first so the dashboard is correct even if GitHub
-  // commenting fails. Sticky PR comment is best-effort after that — do not
-  // fail the whole job (Inngest onFailure would flip status back to failed).
+  // writes fail. The sticky comment and PR-body summary are independent and
+  // best-effort, so run them concurrently without failing the review.
   let commentPosted = false
-  try {
-    await measure("githubCommentMs", () =>
-      postReviewComment(accessToken, owner, repo, prNumber, review, {
-        headSha: prData.headSha,
-        event: "COMMENT",
-      }),
-    )
-    commentPosted = true
-  } catch (error) {
-    console.error(
-      `[generate-pr-review] postReviewComment failed for ${repoId}#${prNumber} (review still saved):`,
-      error,
-    )
-  }
+  let descriptionUpdated = false
+  const descriptionSummary = extractPrDescriptionSummary(review)
+
+  await Promise.all([
+    measure("githubCommentMs", async () => {
+      try {
+        await postReviewComment(accessToken, owner, repo, prNumber, review, {
+          headSha: prData.headSha,
+          event: "COMMENT",
+        })
+        commentPosted = true
+      } catch (error) {
+        console.error(
+          `[generate-pr-review] postReviewComment failed for ${repoId}#${prNumber} (review still saved):`,
+          error,
+        )
+      }
+    }),
+    measure("githubDescriptionMs", async () => {
+      if (!descriptionSummary) {
+        console.warn(
+          `[generate-pr-review] PR description summary missing for ${repoId}#${prNumber}`,
+        )
+        return
+      }
+      try {
+        await updatePullRequestSummary(
+          accessToken,
+          owner,
+          repo,
+          prNumber,
+          descriptionSummary,
+        )
+        descriptionUpdated = true
+      } catch (error) {
+        console.error(
+          `[generate-pr-review] updatePullRequestSummary failed for ${repoId}#${prNumber} (review still saved):`,
+          error,
+        )
+      }
+    }),
+  ])
 
   // Optional notifications are independent. Run them concurrently so their
   // latency is the slower of the two integrations rather than the sum.
@@ -687,6 +731,7 @@ export async function runGeneratePrReview(
     prNumber,
     files: prData.changedFiles.length,
     commentPosted,
+    descriptionUpdated,
     review,
     linearNotified,
     linearIssueId,
