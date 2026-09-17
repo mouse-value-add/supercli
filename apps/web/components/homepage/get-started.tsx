@@ -84,8 +84,8 @@ const GetStartedSection = () => {
       `}</style>
 
       <div className="max-w-[1100px] mx-auto">
-        <h2 className="text-[13px] font-mono uppercase tracking-[0.15em] text-primary mb-6">
-          $ Get started with Supercode
+        <h2 className="text-lg font-semibold text-primary uppercase mb-6">
+          Get started with Supercode
         </h2>
 
         <div className="bg-black/60 border border-border rounded-xl overflow-hidden">

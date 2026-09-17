@@ -176,8 +176,8 @@ interface LinkGroupProps {
 
 const LinkGroup = ({ title, links }: LinkGroupProps) => (
   <div>
-    <h3 className="text-[11px] font-mono text-primary uppercase tracking-[0.15em] mb-5">
-      $ {title}
+    <h3 className="text-base font-semibold text-primary uppercase mb-5">
+      {title}
     </h3>
     <ul className="space-y-3">
       {links.map((link, i) => (
@@ -194,7 +194,7 @@ const LinkGroup = ({ title, links }: LinkGroupProps) => (
               href={link.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-2 text-[13px] font-mono text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
             >
               <span className="w-0 group-hover:w-3 h-px bg-primary transition-all duration-200" />
               <span>{link.label}</span>
@@ -203,7 +203,7 @@ const LinkGroup = ({ title, links }: LinkGroupProps) => (
           ) : (
             <Link
               href={link.href}
-              className="group inline-flex items-center gap-2 text-[13px] font-mono text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="group inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
             >
               <span className="w-0 group-hover:w-3 h-px bg-primary transition-all duration-200" />
               <span>{link.label}</span>
@@ -295,47 +295,37 @@ const Footer = () => {
           />
         </div>
 
-        {/* Social links */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.6, duration: 0.4 }}
-          className="flex justify-center gap-8 mb-12"
-        >
-          <a
-            href="https://github.com/yashdev9274/superCli"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground/60 hover:text-foreground transition-colors duration-200"
-          >
-            <Github className="w-[18px] h-[18px]" />
-          </a>
-          <a
-            href="https://x.com/supercodeai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground/60 hover:text-foreground transition-colors duration-200"
-          >
-            <Twitter className="w-[18px] h-[18px]" />
-          </a>
-          <a
-            href="mailto:yashdev.yvd@gmail.com"
-            className="text-muted-foreground/60 hover:text-foreground transition-colors duration-200"
-          >
-            <Mail className="w-[18px] h-[18px]" />
-          </a>
-        </motion.div>
-
         {/* Bottom bar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-[11px] font-mono text-muted-foreground/40 tracking-[0.05em]">
+        <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+          <p className="text-sm text-[#A1A1AA] text-center font-medium md:text-left">
             © 2026 SUPERCODE INC.
           </p>
-          <div className="flex items-center gap-6">
-            <span className="text-[11px] font-mono text-muted-foreground/20">
-              v0.1.83-beta
-            </span>
+          <span className="text-sm text-[#A1A1AA] font-medium text-center">
+            v0.1.83-beta
+          </span>
+          <div className="flex items-center justify-center md:justify-end gap-4">
+            <a
+              href="https://github.com/yashdev9274/superCli"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#A1A1AA] hover:text-foreground transition-colors duration-200"
+            >
+              <Github className="w-[18px] h-[18px]" />
+            </a>
+            <a
+              href="https://x.com/supercodeai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#A1A1AA] hover:text-foreground transition-colors duration-200"
+            >
+              <Twitter className="w-[18px] h-[18px]" />
+            </a>
+            <a
+              href="mailto:yashdev.yvd@gmail.com"
+              className="text-[#A1A1AA] hover:text-foreground transition-colors duration-200"
+            >
+              <Mail className="w-[18px] h-[18px]" />
+            </a>
           </div>
         </div>
       </div>
