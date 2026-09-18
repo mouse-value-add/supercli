@@ -1,7 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Copy, Check } from "lucide-react";
+
+const badgeTexts = [
+  "Computing...",
+  "Building...",
+  "Deploying...",
+  "Shipping...",
+  "Creating...",
+];
 
 type InstallMethod = "curl" | "npm" | "bun" | "brew" | "npx";
 
@@ -27,7 +35,17 @@ const DOCS_URL =
 
 const HeroSection = () => {
   const [copied, setCopied] = useState(false);
+  const [currentBadgeIndex, setCurrentBadgeIndex] = useState(0);
   const [activeMethod, setActiveMethod] = useState<InstallMethod>("curl");
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCurrentBadgeIndex((previous) =>
+        (previous + 1) % badgeTexts.length,
+      );
+    }, 2500);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const handleCopy = () => {
     const fullCommand =
@@ -68,6 +86,21 @@ const HeroSection = () => {
                 </svg>
                 <span>sponsored by vercel</span>
               </a>
+            </div>
+
+            {/* Rotating activity badge */}
+            <div className="flex justify-center">
+              <div className="flex items-center gap-2 px-5 py-2.5 border border-border rounded-full">
+                <span className="text-primary" aria-hidden="true">◆</span>
+                <span className="text-primary text-[15px]" aria-live="polite">
+                  <span
+                    key={currentBadgeIndex}
+                    className="inline-block animate-fade-in"
+                  >
+                    {badgeTexts[currentBadgeIndex]}
+                  </span>
+                </span>
+              </div>
             </div>
 
             {/* Main headline */}

@@ -1,14 +1,8 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 export default function LaunchBanner() {
-  const pathname = usePathname();
-  if (pathname !== "/") return null;
-
   return (
-    <div className="sticky top-0 z-10000 h-9 sm:h-10 bg-[#0a0a0a] border-b border-primary/15">
+    <div className="sticky top-0 z-[10000] h-9 sm:h-10 bg-[#0a0a0a] border-b border-primary/15">
       <Link
         href="/launch"
         className="h-full w-full flex items-center justify-center gap-2 sm:gap-3 px-4 hover:bg-white/2 transition-colors duration-200"

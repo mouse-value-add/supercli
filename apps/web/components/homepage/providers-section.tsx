@@ -22,14 +22,16 @@ const providers = [
   "LiteLLM",
 ]
 
-const reduceMotion =
-  typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false
-
 const ProvidersSection = () => {
   const [visible, setVisible] = useState(false)
+  const [reduceMotion, setReduceMotion] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    setReduceMotion(
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    )
+  }, [])
 
   useEffect(() => {
     const el = sectionRef.current
@@ -73,7 +75,7 @@ const ProvidersSection = () => {
         <div className="flex items-end justify-between mb-12">
           <div>
             <h2 className="text-lg font-semibold text-primary uppercase mb-4">
-              providers
+              // providers
             </h2>
             <h3 className="text-[28px] md:text-[36px] text-[#A1A1AA] font-medium tracking-tighter leading-[1.15]">
               bring your own model.

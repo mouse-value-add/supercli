@@ -14,7 +14,7 @@ const PartnershipsSection = () => {
         <div className="flex items-end justify-between mb-12">
           <div>
             <h2 className="text-lg font-semibold text-primary uppercase mb-4">
-              Partnerships
+              $ Partnerships
             </h2>
             <h3 className="text-[28px] md:text-[36px] text-[#A1A1AA] font-medium tracking-tighter max-w-[500px] leading-[1.15]">
               Built together

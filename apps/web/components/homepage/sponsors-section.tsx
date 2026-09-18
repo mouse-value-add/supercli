@@ -25,7 +25,7 @@ const SponsorsSection = () => {
       <div className="max-w-[1100px] mx-auto text-center">
         <div className="mb-10 md:mb-12">
           <h2 className="text-lg font-semibold text-primary uppercase mb-4">
-            Our Sponsors
+            $ Our Sponsors
           </h2>
           <h3 className="text-[28px] md:text-[36px] text-[#A1A1AA] font-medium tracking-tighter max-w-[520px] mx-auto leading-[1.15]">
             Backed by the builders of the web

@@ -4,8 +4,7 @@ import Link from "next/link";
 import { Button } from "../ui/button";
 import { usePathname } from "next/navigation";
 import ProductsDropdown from "./products-dropdown";
-import { useEffect, useState, useCallback } from "react";
-import BetaCountdownBanner from "./beta-countdown-banner";
+import { useEffect, useState } from "react";
 
 const DOCS_URL =
   process.env.NEXT_PUBLIC_DOCS_URL || "http://localhost:3001/docs/intro";
@@ -163,13 +162,8 @@ const mobileProducts = [
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bannerVisible, setBannerVisible] = useState(false);
   const pathname = usePathname();
-  const hideBanner = pathname === "/code-review";
-
-  const handleBannerChange = useCallback((visible: boolean) => {
-    setBannerVisible(visible);
-  }, []);
+  const onLandingPage = pathname === "/";
 
   useEffect(() => {
     if (menuOpen) {
@@ -204,12 +198,9 @@ const Navbar = () => {
   return (
     <>
       <header
-        className={`fixed left-0 right-0 z-100 ${hideBanner ? "top-0" : "top-[36px] sm:top-[40px]"}`}
+        className={`fixed left-0 right-0 z-100 ${onLandingPage ? "top-9 sm:top-10" : "top-0"}`}
       >
-        <BetaCountdownBanner onVisibilityChange={handleBannerChange} />
-        <div
-          className={`bg-background/95 backdrop-blur-sm transition-[background,backdrop-filter,border] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${bannerVisible ? "border-t-0" : ""}`}
-        >
+        <div className="bg-background/95 backdrop-blur-sm transition-[background,backdrop-filter,border] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]">
           <div className="relative h-[70px] flex items-center px-5 md:px-12 max-w-[1400px] mx-auto w-full">
             <div className="flex items-center gap-4 shrink-0">
               <button
@@ -316,11 +307,7 @@ const Navbar = () => {
 
         <div
           className={`fixed inset-0 z-40 transition-opacity duration-400 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-            hideBanner
-              ? "top-[70px]"
-              : bannerVisible
-                ? "top-[150px] sm:top-[150px]"
-                : "top-[106px] sm:top-[110px]"
+            onLandingPage ? "top-[106px] sm:top-[110px]" : "top-[70px]"
           } ${
             menuOpen
               ? "opacity-100 pointer-events-auto"

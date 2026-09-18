@@ -19,15 +19,17 @@ const commands: CommandLine[] = [
   { type: "info", text: "start shipping with supercode" },
 ]
 
-const reduceMotion =
-  typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false
-
 const GetStartedSection = () => {
   const [visible, setVisible] = useState(false)
+  const [reduceMotion, setReduceMotion] = useState(false)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const sectionRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    setReduceMotion(
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    )
+  }, [])
 
   useEffect(() => {
     const el = sectionRef.current
@@ -85,7 +87,7 @@ const GetStartedSection = () => {
 
       <div className="max-w-[1100px] mx-auto">
         <h2 className="text-lg font-semibold text-primary uppercase mb-6">
-          Get started with Supercode
+          $ Get started with Supercode
         </h2>
 
         <div className="bg-black/60 border border-border rounded-xl overflow-hidden">
