@@ -63,20 +63,20 @@ test("malformed responses fail while valid empty results remain empty", async ()
   expect(empty.data.results).toEqual([])
 })
 
-test("youcom_search maps hits and reports provider", async () => {
+test("youcom_search maps results and reports provider", async () => {
   let hitUrl: string | undefined
   let hitBody: any
   globalThis.fetch = (async (url: string | URL | Request, options?: RequestInit) => {
     hitUrl = String(url)
     hitBody = JSON.parse(String(options?.body))
-    return Response.json({ hits: [{ title: "Docs", url: "https://example.com/docs", description: "Official fixture" }] })
+    return Response.json({ results: { web: [{ title: "Docs", url: "https://example.com/docs", description: "Official fixture" }] } })
   }) as typeof fetch
   const result = parse(await youcomSearchTool.execute({ query: "fixture docs", maxResults: 3 }))
   expect(result.success).toBe(true)
   expect(result.data.provider).toBe("youcom")
   expect(result.data.results[0].link).toBe("https://example.com/docs")
-  expect(hitUrl).toContain("api.ydc-index.io/search")
-  expect(hitBody.num_web_results).toBe(3)
+  expect(hitUrl).toContain("api.ydc-index.io/v1/search")
+  expect(hitBody.count).toBe(3)
 })
 
 test("youcom_search fails cleanly without YDC_API_KEY", async () => {

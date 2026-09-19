@@ -11,12 +11,15 @@ const youcomSearchSchema = z.object({
 export type YoucomSearchArgs = z.infer<typeof youcomSearchSchema>
 
 function mapYoucomResults(data: any, maxResults: number) {
-  const rawHits = Array.isArray(data?.hits) ? data.hits : []
-  return rawHits.slice(0, maxResults).map((item: any) => ({
+  const results = data?.results
+  const webResults = Array.isArray(results?.web) ? results.web : []
+  const newsResults = Array.isArray(results?.news) ? results.news : []
+  const flat = [...webResults, ...newsResults]
+  return flat.slice(0, maxResults).map((item: any) => ({
     title: String(item.title ?? ""),
     snippet: String(item.description ?? item.snippet ?? ""),
     link: String(item.url ?? ""),
-    publishedDate: item.published_date ?? null,
+    publishedDate: item.published_date ?? item.publishedDate ?? null,
   }))
 }
 
@@ -29,12 +32,14 @@ const _def = {
     "or { success: false, error } when search is unavailable. " +
     "If success is false, do NOT invent search results — relay the error to the user.",
   inputSchema: youcomSearchSchema,
-  execute: async ({ query, maxResults }: YoucomSearchArgs) =>
-    serialize(async () => {
+  execute: async (input: YoucomSearchArgs, ctx?: { signal?: AbortSignal }) => {
+    const { query, maxResults } = youcomSearchSchema.parse(input)
+    return serialize(async () => {
       const resp = await youcomFetch({
-        apiPath: "/search",
-        body: { query, num_web_results: maxResults },
+        apiPath: "/v1/search",
+        body: { query, count: maxResults },
         timeout: 30000,
+        signal: ctx?.signal,
       })
 
       if (resp.ok) {
@@ -49,7 +54,8 @@ const _def = {
         `Web search failed via You.com: ${resp.error}`,
         resp.hint ?? "Set a valid YDC_API_KEY, or use exa_search / firecrawl_search instead.",
       )
-    }),
+    })
+  },
 }
 
 export const youcomSearchTool = defineTool(_def)

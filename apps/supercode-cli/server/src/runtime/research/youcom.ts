@@ -6,6 +6,8 @@ export interface YoucomOptions {
   apiPath: string
   body: Record<string, unknown>
   timeout?: number
+  /** Optional caller-provided abort signal (e.g. the tool execution signal); combined with the timeout. */
+  signal?: AbortSignal
 }
 
 export interface YoucomResult {
@@ -22,10 +24,29 @@ function statusHint(status: number): string | undefined {
   return undefined
 }
 
+/** Combine an optional external signal with a timeout, following the AbortController pattern used across the repo. */
+function withTimeoutSignal(timeout: number, signal?: AbortSignal): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+  const onAbort = () => controller.abort()
+  if (signal) {
+    if (signal.aborted) controller.abort()
+    else signal.addEventListener("abort", onAbort)
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer)
+      if (signal) signal.removeEventListener("abort", onAbort)
+    },
+  }
+}
+
 export function youcomFetch({
   apiPath,
   body,
   timeout = 30000,
+  signal,
 }: YoucomOptions): Promise<YoucomResult> {
   loadEnvOnce()
   const apiKey = process.env.YDC_API_KEY
@@ -38,7 +59,7 @@ export function youcomFetch({
     })
   }
 
-  return callYoucomDirect(apiKey, apiPath, body, timeout)
+  return callYoucomDirect(apiKey, apiPath, body, timeout, signal)
 }
 
 async function callYoucomDirect(
@@ -46,7 +67,9 @@ async function callYoucomDirect(
   apiPath: string,
   body: Record<string, unknown>,
   timeout: number,
+  signal?: AbortSignal,
 ): Promise<YoucomResult> {
+  const timeoutSignal = withTimeoutSignal(timeout, signal)
   try {
     const res = await fetch(`${YOUCOM_BASE}${apiPath}`, {
       method: "POST",
@@ -55,7 +78,7 @@ async function callYoucomDirect(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeout),
+      signal: timeoutSignal.signal,
     })
 
     const data = await res.json().catch(() => ({}))
@@ -69,7 +92,9 @@ async function callYoucomDirect(
       }
     }
 
-    if (!data || typeof data !== "object" || (apiPath === "/search" && !Array.isArray(data.hits))) {
+    const results = data?.results
+    const hasWebOrNews = Array.isArray(results?.web) || Array.isArray(results?.news)
+    if (!data || typeof data !== "object" || (apiPath === "/v1/search" && !hasWebOrNews)) {
       return { ok: false, error: "You.com returned a malformed response" }
     }
     return { ok: true, data }
@@ -80,5 +105,7 @@ async function callYoucomDirect(
       error: isTimeout ? "Request timed out" : (err.message || String(err)),
       hint: isTimeout ? "You.com API may be slow or unreachable. Try exa_search, firecrawl_search, or url_fetch instead." : undefined,
     }
+  } finally {
+    timeoutSignal.cleanup()
   }
 }
